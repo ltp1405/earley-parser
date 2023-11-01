@@ -29,9 +29,8 @@ impl std::fmt::Debug for Pattern {
         match self {
             Pattern::Alternative(v) => {
                 let mut result = String::new();
-                for s in v {
-                    result.push_str(&format!("{}", s));
-                }
+                let s = v.join(",");
+                result.push_str(&format!("{}", s));
                 write!(f, "[{}]", result)
             }
             Pattern::Exact(s) => write!(f, "{}", s),

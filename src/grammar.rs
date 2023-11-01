@@ -17,7 +17,7 @@ impl std::fmt::Debug for GrammarRule {
 }
 
 impl GrammarRule {
-    fn new(left: &str, right: Vec<Sympol>) -> GrammarRule {
+    pub fn new(left: &str, right: Vec<Sympol>) -> GrammarRule {
         GrammarRule {
             left: left.to_string(),
             right,
@@ -31,45 +31,3 @@ pub struct Grammar {
     pub items: Vec<GrammarRule>,
 }
 
-pub fn grammar() -> Grammar {
-    Grammar {
-        start_rule: "Sum".to_string(),
-        items: vec![
-            GrammarRule::new(
-                "Sum",
-                vec![
-                    Sympol::NonTerminal("Sum".to_string()),
-                    Sympol::Terminal(Pattern::Alternative(vec!["+".to_string(), "-".to_string()])),
-                    Sympol::NonTerminal("Product".to_string()),
-                ],
-            ),
-            GrammarRule::new("Sum", vec![Sympol::NonTerminal("Product".to_string())]),
-            GrammarRule::new(
-                "Product",
-                vec![
-                    Sympol::NonTerminal("Product".to_string()),
-                    Sympol::Terminal(Pattern::Alternative(vec!["*".to_string(), "/".to_string()])),
-                    Sympol::NonTerminal("Factor".to_string()),
-                ],
-            ),
-            GrammarRule::new("Product", vec![Sympol::NonTerminal("Factor".to_string())]),
-            GrammarRule::new(
-                "Factor",
-                vec![
-                    Sympol::Terminal(Pattern::Exact("(".to_string())),
-                    Sympol::NonTerminal("Sum".to_string()),
-                    Sympol::Terminal(Pattern::Exact(")".to_string())),
-                ],
-            ),
-            GrammarRule::new("Factor", vec![Sympol::NonTerminal("Number".to_string())]),
-            GrammarRule::new(
-                "Number",
-                vec![
-                    number_range('1', '9'),
-                    Sympol::NonTerminal("Number".to_string()),
-                ],
-            ),
-            GrammarRule::new("Number", vec![number_range('1', '9')]),
-        ],
-    }
-}

@@ -1,13 +1,13 @@
-use grammar::Grammar;
-use sympol::Sympol;
-
-use crate::{chart::EarleyChart, grammar::grammar, item::EarleyItem, state::EarleyState};
+use crate::{chart::EarleyChart, item::EarleyItem, state::EarleyState};
 
 mod chart;
 mod grammar;
 mod item;
 mod state;
 mod sympol;
+
+pub use grammar::{Grammar, GrammarRule};
+pub use sympol::{number_range, Pattern, Sympol};
 
 fn predict(grammar: &Grammar, chart: &mut EarleyChart, current: usize, rule_name: &str) {
     for rule in grammar.items.iter() {
@@ -58,13 +58,8 @@ fn complete(chart: &mut EarleyChart, current_state: usize, current_item: usize) 
     }
 }
 
-pub fn build(input: &str) {
-    let input = input.split("")
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<&str>>();
-    println!("{:#?}", input);
-    let g = grammar();
-    println!("{:#?}", g);
+pub fn build(grammar: &Grammar, input: &[&str]) -> EarleyChart {
+    let g = grammar;
     let mut chart = EarleyChart::new();
     let mut state = EarleyState::new();
     state.add_item_unchecked(EarleyItem::new(g.items[0].clone(), 0, 0));
@@ -74,7 +69,6 @@ pub fn build(input: &str) {
         }
     }
     chart.add_state(state);
-    println!("{:#?}", chart);
 
     let mut i = 0;
     while i < chart.len() {
@@ -93,5 +87,5 @@ pub fn build(input: &str) {
         }
         i += 1;
     }
-    println!("{:#?}", chart);
+    chart
 }
