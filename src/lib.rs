@@ -1,184 +1,97 @@
-#[derive(Clone, Debug, PartialEq)]
-pub enum Sympol {
-    NonTerminal(String),
-    Alt(Vec<Sympol>),
-    Terminal(String),
-}
+use grammar::Grammar;
+use sympol::Sympol;
 
-fn number_range(start: u8, end: u8) -> Sympol {
-    let mut result = Vec::new();
-    for i in start..end {
-        result.push(Sympol::Terminal(format!("{}", i as char)));
-    }
-    Sympol::Alt(result)
-}
+use crate::{chart::EarleyChart, grammar::grammar, item::EarleyItem, state::EarleyState};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct GrammarRule {
-    left: String,
-    right: Vec<Sympol>,
-}
+mod chart;
+mod grammar;
+mod item;
+mod state;
+mod sympol;
 
-impl GrammarRule {
-    fn new(left: &str, right: Vec<Sympol>) -> GrammarRule {
-        GrammarRule {
-            left: left.to_string(),
-            right,
+fn predict(grammar: &Grammar, chart: &mut EarleyChart, current: usize, rule_name: &str) {
+    for rule in grammar.items.iter() {
+        if rule.left == rule_name {
+            chart[current].add_item(EarleyItem::new(rule.clone(), 0, current))
         }
     }
 }
 
-pub struct Grammar {
-    start_rule: String,
-    items: Vec<GrammarRule>,
-}
-
-pub fn grammar() -> Grammar {
-    Grammar {
-        start_rule: "Sum".to_string(),
-        items: vec![
-            GrammarRule::new(
-                "Sum",
-                vec![
-                    Sympol::NonTerminal("Sum".to_string()),
-                    Sympol::Alt(vec![
-                        Sympol::Terminal("+".to_string()),
-                        Sympol::Terminal("-".to_string()),
-                    ]),
-                    Sympol::NonTerminal("Product".to_string()),
-                ],
-            ),
-            GrammarRule::new("Sum", vec![Sympol::NonTerminal("Product".to_string())]),
-            GrammarRule::new(
-                "Product",
-                vec![
-                    Sympol::NonTerminal("Product".to_string()),
-                    Sympol::Alt(vec![
-                        Sympol::Terminal("*".to_string()),
-                        Sympol::Terminal("/".to_string()),
-                    ]),
-                    Sympol::NonTerminal("Factor".to_string()),
-                ],
-            ),
-            GrammarRule::new("Product", vec![Sympol::NonTerminal("Factor".to_string())]),
-            GrammarRule::new(
-                "Factor",
-                vec![
-                    Sympol::Terminal("(".to_string()),
-                    Sympol::NonTerminal("Sum".to_string()),
-                    Sympol::Terminal(")".to_string()),
-                ],
-            ),
-            GrammarRule::new("Factor", vec![Sympol::NonTerminal("Number".to_string())]),
-            GrammarRule::new(
-                "Number",
-                vec![
-                    number_range(0, 9),
-                    Sympol::NonTerminal("Number".to_string()),
-                ],
-            ),
-            GrammarRule::new("Number", vec![number_range(0, 9)]),
-        ],
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct EarleyItem {
-    rule: GrammarRule,
-    dot: usize,
-    start: usize,
-    end: usize,
-}
-
-impl EarleyItem {
-    fn new(rule: GrammarRule, dot: usize, start: usize, end: usize) -> EarleyItem {
-        EarleyItem {
-            rule,
-            dot,
-            start,
-            end,
+fn scan(
+    item: &EarleyItem,
+    chart: &mut EarleyChart,
+    sympol: &Sympol,
+    current: usize,
+    input: &[&str],
+) {
+    match sympol {
+        Sympol::Terminal(s) => {
+            if current >= input.len() {
+                return;
+            }
+            if s.matches(input[current]) {
+                if chart.get(current + 1).is_none() {
+                    chart.add_state(EarleyState::new());
+                }
+                chart[current + 1].add_item(EarleyItem {
+                    dot: item.dot + 1,
+                    ..item.clone()
+                })
+            }
         }
+        _ => unreachable!(),
     }
+}
 
-    fn next_symbol(&self) -> Option<Sympol> {
-        if self.dot < self.rule.right.len() {
-            Some(self.rule.right[self.dot].clone())
-        } else {
-            None
+fn complete(chart: &mut EarleyChart, current_state: usize, current_item: usize) {
+    let item = chart[current_state][current_item].clone();
+    let sympol = item.rule.left;
+    for i in 0..chart[item.origin].len() {
+        if chart[item.origin][i].next_symbol() == Some(Sympol::NonTerminal(sympol.clone())) {
+            let current_dot = chart[item.origin][i].dot;
+            let chosen_item = chart[item.origin][i].clone();
+            chart[current_state].add_item(EarleyItem {
+                dot: current_dot + 1,
+                ..chosen_item
+            })
         }
     }
 }
 
-#[derive(Clone, Debug)]
-struct EarleyState {
-    items: Vec<EarleyItem>,
-}
-
-impl EarleyState {
-    fn new() -> EarleyState {
-        EarleyState { items: Vec::new() }
-    }
-
-    fn add_item_unchecked(&mut self, item: EarleyItem) {
-        self.items.push(item);
-    }
-
-    fn add_item(&mut self, item: EarleyItem) {
-        if !self.items.contains(&item) {
-            self.items.push(item);
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct EarleyChart {
-    states: Vec<EarleyState>,
-}
-
-fn predict(state: &mut EarleyState) {}
-
-fn scan() {}
-
-fn complete() {}
-
-pub fn build() {
+pub fn build(input: &str) {
+    let input = input.split("")
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>();
+    println!("{:#?}", input);
     let g = grammar();
-    let mut chart = EarleyChart { states: Vec::new() };
+    println!("{:#?}", g);
+    let mut chart = EarleyChart::new();
     let mut state = EarleyState::new();
-    state
-        .items
-        .push(EarleyItem::new(g.items[0].clone(), 0, 0, 0));
+    state.add_item_unchecked(EarleyItem::new(g.items[0].clone(), 0, 0));
     for rule in g.items.iter() {
         if rule.left == g.start_rule {
-            state.items.push(EarleyItem::new(rule.clone(), 0, 0, 0));
+            state.add_item(EarleyItem::new(rule.clone(), 0, 0));
         }
     }
-    chart.states.push(state);
+    chart.add_state(state);
     println!("{:#?}", chart);
 
     let mut i = 0;
-    while i < chart.states.len() {
-        let state = &chart.states[i];
+    while i < chart.len() {
         let mut j = 0;
-        while j < state.items.len() {
-            let item = &state.items[j].clone();
+        while j < chart[i].len() {
+            let item = chart[i][j].clone();
             let next_symbol = item.next_symbol();
             match next_symbol {
-                Some(Sympol::NonTerminal(s)) => {
-                    predict()
-                }
-                Some(Sympol::Terminal(s)) => {
-                    scan()
-                }
-                Some(Sympol::Alt(v)) => {
-                    scan()
-                }
+                Some(Sympol::NonTerminal(s)) => predict(&g, &mut chart, i, &s),
+                Some(sympol) => scan(&item, &mut chart, &sympol, i, &input),
                 None => {
-                    complete()
+                    complete(&mut chart, i, j);
                 }
             }
             j += 1;
         }
         i += 1;
     }
+    println!("{:#?}", chart);
 }
